@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:db="http://www.mulesoft.org/schema/mule/db">
+
+    <!-- ❌ BUG: ConcurrentModificationException -->
+    <flow name="updateInventoryFlow">
+        <db:update config-ref="Database_Config">
+            <!-- BUG: No optimistic locking -->
+            <db:sql>UPDATE inventory SET quantity = :qty WHERE product_id = :id</db:sql>
+        </db:update>
+    </flow>
+</mule>
