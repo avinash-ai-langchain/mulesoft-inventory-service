@@ -1,0 +1,9 @@
+# Inventory Service Configuration
+database:
+  host: localhost
+  port: 3306
+  name: inventory_db
+  # ❌ BUG: Missing username and password
+
+api:
+  enabled: "yes"  # ❌ BUG: Should be boolean, not string
