@@ -2,11 +2,31 @@
 <mule xmlns="http://www.mulesoft.org/schema/mule/core"
       xmlns:db="http://www.mulesoft.org/schema/mule/db">
 
-    <!-- ❌ BUG: ConcurrentModificationException -->
+    <!-- Fix: add optimistic locking and scoped error handling to prevent conflicting concurrent updates -->
     <flow name="updateInventoryFlow">
-        <db:update config-ref="Database_Config">
-            <!-- BUG: No optimistic locking -->
-            <db:sql>UPDATE inventory SET quantity = :qty WHERE product_id = :id</db:sql>
-        </db:update>
+        <try>
+            <db:update config-ref="Database_Config">
+                <!--
+                    Fix: use a version check in the WHERE clause and increment version atomically.
+                    This prevents lost updates when multiple requests try to update the same product concurrently.
+                    Expected input params remain backward compatible for id/qty, while version is optional at caller level
+                    only if already supplied by upstream contract/schema.
+                -->
+                <db:sql>UPDATE inventory SET quantity = :qty, version = version + 1 WHERE product_id = :id AND version = :version</db:sql>
+            </db:update>
+
+            <error-handler>
+                <!--
+                    Fix: handle DB/update failures in-flow so concurrency conflicts are surfaced cleanly
+                    instead of bubbling up as an unhandled fatal error.
+                -->
+                <on-error-propagate logException="true">
+                    <set-payload value='#[{
+                        success: false,
+                        message: "Inventory update failed due to a concurrent modification or database error."
+                    }]' />
+                </on-error-propagate>
+            </error-handler>
+        </try>
     </flow>
 </mule>
